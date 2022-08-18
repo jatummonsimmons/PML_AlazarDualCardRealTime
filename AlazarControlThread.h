@@ -71,10 +71,11 @@ protected:
 
 private:
     bool ConfigureBoard(HANDLE boardHandle);
-    bool AcquireData(HANDLE boardHandle);
+    bool AcquireData(HANDLE * boardHandleArray);
     double InputRangeIdToVolts(U32 inputRangeId);
 
-    U16 *BufferArray[BUFFER_COUNT] = { NULL };
+    U16 *BufferArray[2][BUFFER_COUNT] = { NULL };
+
     double samplesPerSec = 0.0;
     U32 inputRange[4];
 

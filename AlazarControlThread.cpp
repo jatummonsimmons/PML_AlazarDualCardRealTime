@@ -28,30 +28,44 @@ void AlazarControlThread::run()
 
     // Get a handle to the board
 
-    HANDLE boardHandle = AlazarGetBoardBySystemID(systemId, boardId);
-    //CODE ADDED: to handle exception where we get the 2 channel board
-    ALAZAR_BOARDTYPES boardType = AlazarGetBoardKind(boardHandle);
-    if (boardType ==18){
-        U32 systemId = 2;
-        HANDLE boardHandle = AlazarGetBoardBySystemID(systemId, boardId);
+//    HANDLE boardHandle = AlazarGetBoardBySystemID(systemId, boardId);
+//    ALAZAR_BOARDTYPES boardType = AlazarGetBoardKind(boardHandle);
+//    if (boardType ==18){
+//        U32 systemId = 2;
+//        HANDLE boardHandle = AlazarGetBoardBySystemID(systemId, boardId);
+//    }
+//    if (boardHandle == NULL)
+//    {
+//        printf("Error: Unable to open board system Id %u board Id %u\n", systemId, boardId);
+//        return;
+//    }
+
+    // Get a handle to each board in the board system
+    HANDLE boardHandleArray[2] = { NULL };
+    U32 boardIndex;
+    for (boardIndex = 0; boardIndex < 2; boardIndex++){
+        U32 boardId = boardIndex + 1;
+        boardHandleArray[boardIndex] = AlazarGetBoardBySystemID(systemId, boardId);
+        if (boardHandleArray[boardIndex] == NULL){
+            printf("Error in AlazarGetBoardBySystemID(): Unable to open board system Id %u board Id %u\n", systemId, boardId);
+            return;
+        }
     }
-    if (boardHandle == NULL)
-    {
-        printf("Error: Unable to open board system Id %u board Id %u\n", systemId, boardId);
-        return;
-    }
+
 
     // Configure the board's sample rate, input, and trigger settings
 
-    if (!ConfigureBoard(boardHandle))
-    {
-        printf("Error: Configure board failed\n");
-        return;
+    for (boardIndex = 0; boardIndex < 2; boardIndex++){
+        if (!ConfigureBoard(boardHandleArray[boardIndex]))
+        {
+            qDebug() << "Error: Configure board failed for board number:" << boardIndex+1 << "with handle" << boardHandleArray[boardIndex];
+            return;
+        }
     }
-
     // Make an acquisition, optionally saving sample data to a file
 
-    if (!AcquireData(boardHandle))
+    // Passing just the first of the two boards which acts as the systemHandle
+    if (!AcquireData(boardHandleArray))
     {
         printf("Error: Acquisition failed\n");
         return;
@@ -77,7 +91,7 @@ bool AlazarControlThread::ConfigureBoard(HANDLE boardHandle)
 
     retCode = AlazarSetCaptureClock(boardHandle,
                                     INTERNAL_CLOCK,
-                                    SAMPLE_RATE_125MSPS,
+                                    SAMPLE_RATE_250MSPS,
                                     CLOCK_EDGE_RISING,
                                     0);
     if (retCode != ApiSuccess)
@@ -87,60 +101,29 @@ bool AlazarControlThread::ConfigureBoard(HANDLE boardHandle)
     }
 
 
-    // TODO: Select channel A input parameters as required
-    inputRange[0] = INPUT_RANGE_PM_2_V;
-
-    retCode = AlazarInputControlEx(boardHandle,
-                                   CHANNEL_A,
-                                   DC_COUPLING,
-                                   inputRange[0],
-                                   IMPEDANCE_50_OHM);
-    if (retCode != ApiSuccess)
-    {
-        printf("Error: AlazarInputControlEx failed -- %s\n", AlazarErrorToText(retCode));
-        return FALSE;
+    // Channel settings
+    // Select channel A input parameters as required
+    retCode = AlazarInputControlEx(boardHandle, CHANNEL_A, DC_COUPLING, INPUT_RANGE_PM_1_V_25, IMPEDANCE_50_OHM);
+    if (retCode != ApiSuccess){
+        printf("Error: AlazarInputControlEx failed -- %s\n", AlazarErrorToText(retCode));return FALSE;
     }
 
-    // TODO: Select channel B input parameters as required
-    inputRange[1] = INPUT_RANGE_PM_2_V;
-
-    retCode = AlazarInputControlEx(boardHandle,
-                                   CHANNEL_B,
-                                   DC_COUPLING,
-                                   inputRange[1],
-                                   IMPEDANCE_50_OHM);
-    if (retCode != ApiSuccess)
-    {
-        printf("Error: AlazarInputControlEx failed -- %s\n", AlazarErrorToText(retCode));
-        return FALSE;
+    // Select channel A bandwidth limit as required
+    retCode = AlazarSetBWLimit(boardHandle, CHANNEL_A, 0);
+    if (retCode != ApiSuccess){
+        printf("Error: AlazarSetBWLimit failed -- %s\n", AlazarErrorToText(retCode)); return FALSE;
     }
 
-    // TODO: Select channel C input parameters as required
-    inputRange[2] = INPUT_RANGE_PM_2_V;
-
-    retCode = AlazarInputControlEx(boardHandle,
-                                   CHANNEL_C,
-                                   DC_COUPLING,
-                                   inputRange[2],
-                                   IMPEDANCE_50_OHM);
-    if (retCode != ApiSuccess)
-    {
-        printf("Error: AlazarInputControlEx failed -- %s\n", AlazarErrorToText(retCode));
-        return FALSE;
+    // Select channel B input parameters as required
+    retCode = AlazarInputControlEx(boardHandle, CHANNEL_B, DC_COUPLING, INPUT_RANGE_PM_1_V_25, IMPEDANCE_50_OHM);
+    if (retCode != ApiSuccess){
+        printf("Error: AlazarInputControlEx failed -- %s\n", AlazarErrorToText(retCode)); return FALSE;
     }
 
-    // TODO: Select channel D input parameters as required
-    inputRange[3] = INPUT_RANGE_PM_2_V;
-
-    retCode = AlazarInputControlEx(boardHandle,
-                                   CHANNEL_D,
-                                   DC_COUPLING,
-                                   inputRange[3],
-                                   IMPEDANCE_50_OHM);
-    if (retCode != ApiSuccess)
-    {
-        printf("Error: AlazarInputControlEx failed -- %s\n", AlazarErrorToText(retCode));
-        return FALSE;
+    // Select channel B bandwidth limit as required
+    retCode = AlazarSetBWLimit(boardHandle, CHANNEL_B, 0);
+    if (retCode != ApiSuccess){
+        printf("Error: AlazarSetBWLimit failed -- %s\n", AlazarErrorToText(retCode)); return FALSE;
     }
 
     // TODO: Select trigger inputs and levels as required
@@ -149,7 +132,7 @@ bool AlazarControlThread::ConfigureBoard(HANDLE boardHandle)
                                         TRIG_ENGINE_OP_J,
                                         TRIG_ENGINE_J,
                                         TRIG_EXTERNAL,
-                                        TRIGGER_SLOPE_POSITIVE,
+                                        TRIGGER_SLOPE_NEGATIVE,
                                         150,
                                         TRIG_ENGINE_K,
                                         TRIG_DISABLE,
@@ -212,7 +195,7 @@ bool AlazarControlThread::ConfigureBoard(HANDLE boardHandle)
 
 }
 
-bool AlazarControlThread::AcquireData(HANDLE boardHandle)
+bool AlazarControlThread::AcquireData(HANDLE * boardHandleArray)
 {
     // There are no pre-trigger samples in NPT mode
     //U32 preTriggerSamples = 0;
@@ -230,14 +213,13 @@ bool AlazarControlThread::AcquireData(HANDLE boardHandle)
     buffersPerAcquisition = BUFFERS_PER_ACQUISITION;
 
     // TODO: Select which channels to capture (A, B, or both)
-    U32 channelMask = CHANNEL_A | CHANNEL_B | CHANNEL_C | CHANNEL_D;
+    U32 channelMask = CHANNEL_A | CHANNEL_B;
 
-    // TODO: Select if you wish to save the sample data to a file
-//    BOOL saveData = false;
+    HANDLE systemHandle = boardHandleArray[0];
 
     // Calculate the number of enabled channels from the channel mask
     int channelCount = 0;
-    int channelsPerBoard = 4;
+    int channelsPerBoard = 2;
     for (int channel = 0; channel < channelsPerBoard; channel++)
     {
         U32 channelId = 1U << channel;
@@ -248,7 +230,7 @@ bool AlazarControlThread::AcquireData(HANDLE boardHandle)
     // Get the sample size in bits, and the on-board memory size in samples per channel
     U8 bitsPerSample;
     U32 maxSamplesPerChannel;
-    RETURN_CODE retCode = AlazarGetChannelInfo(boardHandle, &maxSamplesPerChannel, &bitsPerSample);
+    RETURN_CODE retCode = AlazarGetChannelInfo(systemHandle, &maxSamplesPerChannel, &bitsPerSample);
     if (retCode != ApiSuccess)
     {
         printf("Error: AlazarGetChannelInfo failed -- %s\n", AlazarErrorToText(retCode));
@@ -264,94 +246,84 @@ bool AlazarControlThread::AcquireData(HANDLE boardHandle)
 
     // JATS CHANGE: Add in a saveBuffer which is specified as the number of buffers per acquisition * samples per buffer
 
-    saveBuffer = new U16[bytesPerBuffer/2*buffersPerAcquisition];
+    saveBuffer = new U16[2*bytesPerBuffer/2*buffersPerAcquisition];
     waitTimeBuffer = new double[buffersPerAcquisition*2];
 
     // JATS CHANGE: Add in sendEmit flag to help GUI only receive emits when it is ready
     bool sendEmit = false;
     std::atomic<bool> sendEmitAtom = false;
 
-    // Create a data file if required
-    FILE *fpData = NULL;
-
-//    if (saveData)
-//    {
-//        fpData = fopen("data.bin", "wb");
-//        if (fpData == NULL)
-//        {
-//            printf("Error: Unable to create data file -- %u\n", GetLastError());
-//            return FALSE;
-//        }
-//    }
-
-
-    // Allocate memory for DMA buffers
     BOOL success = TRUE;
-
+    // Allocate memory for DMA buffers
     U32 bufferIndex;
-    for (bufferIndex = 0; (bufferIndex < BUFFER_COUNT) && success; bufferIndex++)
-    {
-        // Allocate page aligned memory
-        BufferArray[bufferIndex] =
-            (U16 *)AlazarAllocBufferU16(boardHandle, bytesPerBuffer);
-        if (BufferArray[bufferIndex] == NULL)
+    U32 boardIndex;
+    for (boardIndex = 0; boardIndex < 2 && success; boardIndex++) {
+        for (bufferIndex = 0; (bufferIndex < BUFFER_COUNT) && success; bufferIndex++)
         {
-            printf("Error: Alloc %u bytes failed\n", bytesPerBuffer);
-            success = FALSE;
+            // Allocate page aligned memory
+            BufferArray[boardIndex][bufferIndex] =
+                (U16 *)AlazarAllocBufferU16(boardHandleArray[boardIndex], bytesPerBuffer);
+            if (BufferArray[boardIndex][bufferIndex] == NULL)
+            {
+                printf("Error: Alloc %u bytes failed\n", bytesPerBuffer);
+                success = FALSE;
+            }
         }
     }
 
-
-    // Configure the record size
-    if (success)
-    {
-        retCode = AlazarSetRecordSize(boardHandle, preTriggerSamples, postTriggerSamples);
-        if (retCode != ApiSuccess)
+    // Prepare each board for an AutoDMA acquisition
+    for (boardIndex = 0; boardIndex < 2 && success; boardIndex++){
+        // Configure the record size
+        if (success)
         {
-            printf("Error: AlazarSetRecordSize failed -- %s\n", AlazarErrorToText(retCode));
-            success = FALSE;
+            retCode = AlazarSetRecordSize(boardHandleArray[boardIndex], preTriggerSamples, postTriggerSamples);
+            if (retCode != ApiSuccess)
+            {
+                printf("Error: AlazarSetRecordSize failed -- %s\n", AlazarErrorToText(retCode));
+                success = FALSE;
+            }
         }
-    }
 
 
-    // JATS CHANGE: Checking NPT requirements
-//    U32 retValue;
-//    retCode = AlazarQueryCapability(boardHandle,CAP_MAX_NPT_PRETRIGGER_SAMPLES,0, &retValue);
+        // JATS CHANGE: Checking NPT requirements
+    //    U32 retValue;
+    //    retCode = AlazarQueryCapability(boardHandle,CAP_MAX_NPT_PRETRIGGER_SAMPLES,0, &retValue);
 
-    // Configure the board to make an NPT AutoDMA acquisition
-    if (success)
-    {
-        //U32 recordsPerAcquisition = recordsPerBuffer * buffersPerAcquisition;
-        U32 infiniteRecords = 0x7FFFFFFF; // Acquire until aborted or timeout. // JATS CHANGE: want infinite acquisition
-        U32 admaFlags = ADMA_INTERLEAVE_SAMPLES | ADMA_EXTERNAL_STARTCAPTURE | ADMA_TRADITIONAL_MODE | ADMA_FIFO_ONLY_STREAMING;
-        retCode = AlazarBeforeAsyncRead(boardHandle, channelMask, -(long)preTriggerSamples,
-                                        samplesPerRecord, recordsPerBuffer, infiniteRecords,
-                                        admaFlags);
-        if (retCode != ApiSuccess)
+        // Configure the board to make an NPT AutoDMA acquisition
+        if (success)
         {
-            printf("Error: AlazarBeforeAsyncRead failed -- %s\n", AlazarErrorToText(retCode));
-            success = FALSE;
+            //U32 recordsPerAcquisition = recordsPerBuffer * buffersPerAcquisition;
+            U32 infiniteRecords = 0x7FFFFFFF; // Acquire until aborted or timeout. // JATS CHANGE: want infinite acquisition
+            U32 admaFlags = ADMA_EXTERNAL_STARTCAPTURE | ADMA_NPT;
+            retCode = AlazarBeforeAsyncRead(boardHandleArray[boardIndex], channelMask, -(long)preTriggerSamples,
+                                            samplesPerRecord, recordsPerBuffer, infiniteRecords,
+                                            admaFlags);
+            if (retCode != ApiSuccess)
+            {
+                printf("Error: AlazarBeforeAsyncRead failed -- %s\n", AlazarErrorToText(retCode));
+                success = FALSE;
+            }
         }
-    }
 
-    // Add the buffers to a list of buffers available to be filled by the board
+        // Add the buffers to a list of buffers available to be filled by the board
 
-    for (bufferIndex = 0; (bufferIndex < BUFFER_COUNT) && success; bufferIndex++)
-    {
-        U16 *pBuffer = BufferArray[bufferIndex];
-        retCode = AlazarPostAsyncBuffer(boardHandle, pBuffer, bytesPerBuffer);
-        if (retCode != ApiSuccess)
+        for (bufferIndex = 0; (bufferIndex < BUFFER_COUNT) && success; bufferIndex++)
         {
-            printf("Error: AlazarPostAsyncBuffer %u failed -- %s\n", bufferIndex,
-                   AlazarErrorToText(retCode));
-            success = FALSE;
+            U16 *pBuffer = BufferArray[boardIndex][bufferIndex];
+            retCode = AlazarPostAsyncBuffer(boardHandleArray[boardIndex], pBuffer, bytesPerBuffer);
+            if (retCode != ApiSuccess)
+            {
+                printf("Error: AlazarPostAsyncBuffer %u failed -- %s\n", bufferIndex,
+                       AlazarErrorToText(retCode));
+                success = FALSE;
+            }
         }
     }
 
     // Arm the board system to wait for a trigger event to begin the acquisition
     if (success)
     {
-        retCode = AlazarStartCapture(boardHandle);
+        retCode = AlazarStartCapture(systemHandle);
         if (retCode != ApiSuccess)
         {
             printf("Error: AlazarStartCapture failed -- %s\n", AlazarErrorToText(retCode));
@@ -367,103 +339,96 @@ bool AlazarControlThread::AcquireData(HANDLE boardHandle)
 
         U32 startTickCount = GetTickCount();
         U32 buffersCompleted = 0;
-        U32 numSaveBuffers = 0;
         INT64 bytesTransferred = 0;
-
-        std::chrono::time_point<std::chrono::system_clock> start, end;
-        std::chrono::duration<double> startWait, endWait;
 
         while (running)
         {
             // TODO: Set a buffer timeout that is longer than the time
             //       required to capture all the records in one buffer.
-            U32 timeout_ms = 10000000;
+            U32 timeout_ms = 100000;
 
             // Wait for the buffer at the head of the list of available buffers
             // to be filled by the board.
             bufferIndex = buffersCompleted % BUFFER_COUNT;
-            U16 *pBuffer = BufferArray[bufferIndex];
-            start = std::chrono::system_clock::now();
-            retCode = AlazarWaitAsyncBufferComplete(boardHandle, pBuffer, timeout_ms);
-            end = std::chrono::system_clock::now();
 
-            startWait = start.time_since_epoch();
-            endWait = end.time_since_epoch();
+            for (boardIndex = 0; (boardIndex < 2) && success; boardIndex++){
 
-            if (retCode != ApiSuccess)
-            {
-                qDebug() << "Error: AlazarWaitAsyncBufferComplete failed --" << AlazarErrorToText(retCode);
-                success = FALSE;
-            }
+                U16 *pBuffer = BufferArray[boardIndex][bufferIndex];
 
-            if (success && (!pauseSaveBuffer))
-            {
-                // JATS CHANGE: adding buffer completed                
-                U64 index = (numSaveBufferAtom%buffersPerAcquisition)*bytesPerBuffer/2;
-                memmove(&(saveBuffer[index]),pBuffer,bytesPerBuffer);
+                retCode = AlazarWaitAsyncBufferComplete(boardHandleArray[boardIndex], pBuffer, timeout_ms);
 
-                waitTimeBuffer[(numSaveBufferAtom%buffersPerAcquisition)*2+0] = startWait.count();
-                waitTimeBuffer[(numSaveBufferAtom%buffersPerAcquisition)*2+1] = endWait.count();
-
-                numSaveBufferAtom++;
-                sendEmitAtom = !flagAtom;
-                flagAtom = true;
-
-
-//                {
-//                    QMutexLocker locker(&mutex);
-//                    numberOfBuffersAddedToSaveBuffer++;
-//                    sendEmit = !flag;
-//                    flag = true;
-//                }
-
-
-                if (sendEmitAtom){
-                    //qDebug() << "Emit sent on buffer number" << numSaveBufferAtom;
-                    emit dataReady(this);
-                }
-                else {
-                    //qDebug() << "No emit on buffer #" << numSaveBufferAtom;
-                }
-
-                if (saveData)
-                {
-                    if (currentSaveCount < totalSaveCount){
-                        // Write record to file
-                        currentSaveCount++;
-                        size_t bytesWritten;
-                        if (fwrite != NULL){
-                            bytesWritten = fwrite(pBuffer, sizeof(BYTE), bytesPerBuffer, continuousSaveFile);
-                        }
-                        else {
-                            qDebug() << "File handle is null on trying to write before currentSaveCount < totalSaveCount";
-                            stopContinuousSave();
-                        }
-
-                        if (bytesWritten != bytesPerBuffer)
-                        {
-                            qDebug() << "Error: Write buffer" << numSaveBufferAtom << "failed --" << GetLastError();
-                            stopContinuousSave();
-                        }
-                        qDebug() << "Buffer number " << currentSaveCount << "saved successfully";
-                    }
-                    else {
-                        stopContinuousSave();
-                    }
-                }
-            }
-
-            // Add the buffer to the end of the list of available buffers.
-            if (success)
-            {
-                retCode = AlazarPostAsyncBuffer(boardHandle, pBuffer, bytesPerBuffer);
                 if (retCode != ApiSuccess)
                 {
-                    qDebug() << "Error: AlazarPostAsyncBuffer failed --" << AlazarErrorToText(retCode);
+                    qDebug() << "Error: AlazarWaitAsyncBufferComplete failed --" << AlazarErrorToText(retCode);
                     success = FALSE;
                 }
-            }
 
+                if (success && (!pauseSaveBuffer))
+                {
+                    U64 index = 0;
+                    if (boardIndex == 0){
+                        index = (numSaveBufferAtom%buffersPerAcquisition)*2*bytesPerBuffer/2;
+                    }
+                    else {
+                        index = (numSaveBufferAtom%buffersPerAcquisition)*2*bytesPerBuffer/2+1*bytesPerBuffer/2;
+                    }
+                    memmove(&(saveBuffer[index]),pBuffer,bytesPerBuffer);
+
+                    if (boardIndex == 1){
+                        numSaveBufferAtom++;
+                        sendEmitAtom = !flagAtom;
+                        flagAtom = true;
+
+                        if (sendEmitAtom){
+                            //qDebug() << "Emit sent on buffer number" << numSaveBufferAtom;
+                            emit dataReady(this);
+                        }
+                        else {
+                            //qDebug() << "No emit on buffer #" << numSaveBufferAtom;
+                        }
+                    }
+
+                    if (saveData)
+                    {
+                        if (currentSaveCount < totalSaveCount){
+                            // Write record to file
+                            if(boardIndex ==1){
+                                currentSaveCount++;
+                            }
+
+                            size_t bytesWritten;
+                            if (fwrite != NULL){
+                                bytesWritten = fwrite(pBuffer, sizeof(BYTE), bytesPerBuffer, continuousSaveFile);
+                            }
+                            else {
+                                qDebug() << "File handle is null on trying to write before currentSaveCount < totalSaveCount";
+                                stopContinuousSave();
+                            }
+
+                            if (bytesWritten != bytesPerBuffer)
+                            {
+                                qDebug() << "Error: Write buffer" << numSaveBufferAtom << "failed --" << GetLastError();
+                                stopContinuousSave();
+                            }
+                            qDebug() << "Buffer number " << currentSaveCount << "saved successfully";
+                        }
+                        else {
+                            stopContinuousSave();
+                        }
+                    }
+                }
+
+                // Add the buffer to the end of the list of available buffers.
+                if (success)
+                {
+                    retCode = AlazarPostAsyncBuffer(boardHandleArray[boardIndex], pBuffer, bytesPerBuffer);
+                    if (retCode != ApiSuccess)
+                    {
+                        qDebug() << "Error: AlazarPostAsyncBuffer failed --" << AlazarErrorToText(retCode);
+                        success = FALSE;
+                    }
+                }
+            }
             // If the acquisition failed, exit the acquisition loop
             if (!success){
                 qDebug() << "Acquisition has failed. Exiting acquisition loop...";
@@ -506,27 +471,25 @@ bool AlazarControlThread::AcquireData(HANDLE boardHandle)
     }
 
     // Abort the acquisition
-    retCode = AlazarAbortAsyncRead(boardHandle);
-    if (retCode != ApiSuccess)
-    {
-//        printf("Error: AlazarAbortAsyncRead failed -- %s\n", AlazarErrorToText(retCode));
-        //qDebug() << "Error: AlazarAbortAsyncRead failed -- " << AlazarErrorToText(retCode);
-        success = FALSE;
-    }
-
-    // Free all memory allocated
-    for (bufferIndex = 0; bufferIndex < BUFFER_COUNT; bufferIndex++)
-    {
-        if (BufferArray[bufferIndex] != NULL)
+    for(boardIndex = 0; boardIndex < 2; boardIndex++){
+        retCode = AlazarAbortAsyncRead(boardHandleArray[boardIndex]);
+        if (retCode != ApiSuccess)
         {
-            AlazarFreeBufferU16(boardHandle, BufferArray[bufferIndex]);
-
+    //        printf("Error: AlazarAbortAsyncRead failed -- %s\n", AlazarErrorToText(retCode));
+            //qDebug() << "Error: AlazarAbortAsyncRead failed -- " << AlazarErrorToText(retCode);
+            success = FALSE;
         }
     }
-
-    // Close the data file
-//    if (fpData != NULL)
-//        fclose(fpData);
+    // Free all memory allocated
+    for(boardIndex = 0; boardIndex < 2; boardIndex++){
+        for (bufferIndex = 0; bufferIndex < BUFFER_COUNT; bufferIndex++)
+        {
+            if (BufferArray[bufferIndex] != NULL)
+            {
+                AlazarFreeBufferU16(boardHandleArray[boardIndex], BufferArray[boardIndex][bufferIndex]);
+            }
+        }
+    }
 
     qDebug() << "DTh: Data acquisition run loop finished...";
     return success;
@@ -540,33 +503,40 @@ void AlazarControlThread::readLatestData(QVector< QVector<double> > *ch1,
     //U32 startTickCount = GetTickCount();
     U64 totalSamplesPerChannelPerRecord = preTriggerSamples + postTriggerSamples;
     U32 tempBuffersCompleted = 0;
-//    {
-//        QMutexLocker locker(&mutex);
-//        tempBuffersCompleted = numberOfBuffersAddedToSaveBuffer;
-//        flag = false;
-//    }
+
     tempBuffersCompleted = numSaveBufferAtom;
     flagAtom = false;
 
-    U16 * windowBuffer = saveBuffer+((tempBuffersCompleted-1)%buffersPerAcquisition)*bytesPerBuffer/2;
+    U16 * windowBuffer = saveBuffer+((tempBuffersCompleted-1)%buffersPerAcquisition)*2*bytesPerBuffer/2;
     U16 offset = 0x8000;
 
-    // *(1/4) represents the bit shift moving from int 16 to int 14
-    // *(1/8192) respresents the scaling of this range from -8192 to 8192 to -1 to 1
+    // *(1/8192) respresents the scaling of this range from -32768 to 32768 to -1 to 1
     // *voltageRange represents the scaling of -1 to 1 to -Voltage max to +Voltage max
-    double ch1_scale = InputRangeIdToVolts(inputRange[0])*(1/8192.0)*(1/4.0);
-    double ch2_scale = InputRangeIdToVolts(inputRange[1])*(1/8192.0)*(1/4.0);
-    double ch3_scale = InputRangeIdToVolts(inputRange[2])*(1/8192.0)*(1/4.0);
-    double ch4_scale = InputRangeIdToVolts(inputRange[3])*(1/8192.0)*(1/4.0);
+    double ch1_scale = 1.25*(1/32768.0);
+    double ch2_scale = 1.25*(1/32768.0);
+    double ch3_scale = 1.25*(1/32768.0);
+    double ch4_scale = 1.25*(1/32768.0);
+
+//    U64 index_offset;
+//    for (int i = 0; i < RECORDS_PER_BUFFER; i++){
+//        // could put a dereferencing section here for the first loop for two dimensional vectors to save some compute time
+//        index_offset = i*totalSamplesPerChannelPerRecord*4;
+//        for (int j = 0; j < totalSamplesPerChannelPerRecord; j++){
+//            (*ch1)[i][j] = ch1_scale*(windowBuffer[j*4+0+index_offset]-offset);
+//            (*ch2)[i][j] = ch2_scale*(windowBuffer[j*4+1+index_offset]-offset);
+//            (*ch3)[i][j] = ch3_scale*(windowBuffer[j*4+2+index_offset]-offset);
+//            (*ch4)[i][j] = ch4_scale*(windowBuffer[j*4+3+index_offset]-offset);
+//        }
+//    }
+
     U64 index_offset;
     for (int i = 0; i < RECORDS_PER_BUFFER; i++){
-        // could put a dereferencing section here for the first loop for two dimensional vectors to save some compute time
-        index_offset = i*totalSamplesPerChannelPerRecord*4;
+        index_offset = i*totalSamplesPerChannelPerRecord;
         for (int j = 0; j < totalSamplesPerChannelPerRecord; j++){
-            (*ch1)[i][j] = ch1_scale*(windowBuffer[j*4+0+index_offset]-offset);
-            (*ch2)[i][j] = ch2_scale*(windowBuffer[j*4+1+index_offset]-offset);
-            (*ch3)[i][j] = ch3_scale*(windowBuffer[j*4+2+index_offset]-offset);
-            (*ch4)[i][j] = ch4_scale*(windowBuffer[j*4+3+index_offset]-offset);
+            (*ch1)[i][j] = ch1_scale*(windowBuffer[j+index_offset+RECORDS_PER_BUFFER*0*totalSamplesPerChannelPerRecord]-offset);
+            (*ch2)[i][j] = ch2_scale*(windowBuffer[j+index_offset+RECORDS_PER_BUFFER*1*totalSamplesPerChannelPerRecord]-offset);
+            (*ch3)[i][j] = ch3_scale*(windowBuffer[j+index_offset+RECORDS_PER_BUFFER*2*totalSamplesPerChannelPerRecord]-offset);
+            (*ch4)[i][j] = ch4_scale*(windowBuffer[j+index_offset+RECORDS_PER_BUFFER*3*totalSamplesPerChannelPerRecord]-offset);
         }
     }
     //double transferTime_sec = (GetTickCount() - startTickCount) / 1000.;
@@ -688,12 +658,12 @@ int AlazarControlThread::saveDataBuffer()
 
     U32 tempBuffersCompleted = numSaveBufferAtom;
     if (tempBuffersCompleted < BUFFERS_PER_ACQUISITION){
-        bytesWritten= fwrite(saveBuffer, sizeof(BYTE), tempBuffersCompleted*bytesPerBuffer, fpData);
+        bytesWritten= fwrite(saveBuffer, sizeof(BYTE), tempBuffersCompleted*2*bytesPerBuffer, fpData);
 
         // check if errored
-        if (bytesWritten != tempBuffersCompleted*bytesPerBuffer){
+        if (bytesWritten != tempBuffersCompleted*2*bytesPerBuffer){
             qDebug() << "Error: Write buffer failed --";
-            qDebug() << "Bytes written: " << bytesWritten << "does not equal" << tempBuffersCompleted*bytesPerBuffer;
+            qDebug() << "Bytes written: " << bytesWritten << "does not equal" << tempBuffersCompleted*2*bytesPerBuffer;
             if (fpData != NULL)
                 fclose(fpData);
             return 1;
@@ -703,23 +673,23 @@ int AlazarControlThread::saveDataBuffer()
         // we have an array with [[5] [2] [3] [4]]
         // buffersCompleted is 5, so 5%4 is 1
         // so first fwrite from buffersCompleted to end of file
-        bytesWritten = fwrite(&saveBuffer[(tempBuffersCompleted%BUFFERS_PER_ACQUISITION)*(bytesPerBuffer/2)],
+        bytesWritten = fwrite(&saveBuffer[(tempBuffersCompleted%BUFFERS_PER_ACQUISITION)*(2*bytesPerBuffer/2)],
                               sizeof(BYTE),
-                              (BUFFERS_PER_ACQUISITION-(tempBuffersCompleted%BUFFERS_PER_ACQUISITION))*bytesPerBuffer,
+                              (BUFFERS_PER_ACQUISITION-(tempBuffersCompleted%BUFFERS_PER_ACQUISITION))*2*bytesPerBuffer,
                               fpData);
         if ((tempBuffersCompleted%BUFFERS_PER_ACQUISITION) != 0){
             // if the buffer does not fit perfectly,
             // then fwrite from beginning of file to buffersCompleted
             bytesWritten += fwrite(saveBuffer,
                                    sizeof(BYTE),
-                                   ((tempBuffersCompleted%BUFFERS_PER_ACQUISITION))*bytesPerBuffer,
+                                   ((tempBuffersCompleted%BUFFERS_PER_ACQUISITION))*2*bytesPerBuffer,
                                    fpData);
         }
 
         // check if errored
-        if (bytesWritten != BUFFERS_PER_ACQUISITION*bytesPerBuffer){
+        if (bytesWritten != BUFFERS_PER_ACQUISITION*2*bytesPerBuffer){
             qDebug() << "Error: Write buffer failed";
-            qDebug() << "Bytes written: " << bytesWritten << "does not equal" << BUFFERS_PER_ACQUISITION*bytesPerBuffer;
+            qDebug() << "Bytes written: " << bytesWritten << "does not equal" << BUFFERS_PER_ACQUISITION*2*bytesPerBuffer;
             if (fpData != NULL)
                 fclose(fpData);
             return 1;

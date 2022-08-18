@@ -92,6 +92,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&processingThread,&dataProcessingThread::sig_ready,
             this,&MainWindow::updateSig);
 
+    connect(&processingThread,&dataProcessingThread::focusSig_ready,
+            this,&MainWindow::updateFocusSig);
+
     // Initialize connections between front end thread and dataThread
     connect(&dataThread,&AlazarControlThread::continuousSaveComplete,
             this,&MainWindow::continuousSaveComplete);
@@ -481,6 +484,11 @@ void MainWindow::updateSig()
 
 }
 
+void MainWindow::updateFocusSig(){
+    processingThread.read_focusSig(&focusSig_nsc);
+//    qDebug() << focusSig_nsc;
+}
+
 void MainWindow::setupTimeDomainPlot(QCustomPlot *customPlot)
 {
     // Initialize all necessary customPlot parameters
@@ -730,6 +738,8 @@ void MainWindow::on_pushButton_clicked()
     int success = dataThread.saveDataBuffer();
 
     ui->pushButton->setEnabled(true);
+    ui->pushButton_2->setEnabled(true);
+
     if (success == 1){
         qDebug() << "(GUI) Save failed.";
     }
@@ -813,7 +823,6 @@ void MainWindow::on_pushButton_5_clicked()
     }
     background_collected = true;
 }
-
 
 void MainWindow::on_checkBox_stateChanged(int arg1)
 {

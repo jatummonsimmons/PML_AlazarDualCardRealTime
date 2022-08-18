@@ -25,11 +25,13 @@ public:
                   QVector<double> *sig_gsc,
                   QVector<double> *sig_m1,
                   QVector<double> *sig_m2);
+    void read_focusSig(double *focusSig_nsc);
 
 signals:
     void rawSig_ready();
     void avgSig_ready();
     void sig_ready();
+    void focusSig_ready();
 
 protected:
     void run() override;
@@ -57,6 +59,9 @@ private:
     QVector< double > sig_gsc;
     bool sig_flag;
 
+    QMutex focusSig_mutex;
+    double focusSig_nsc;
+    bool focusSig_flag;
 };
 
 #endif // DATAPROCESSINGTHREAD_H

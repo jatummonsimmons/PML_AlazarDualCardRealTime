@@ -3,7 +3,7 @@
 
 // Acquisition parameters
 #define PRE_TRIGGER_SAMPLES (128)
-#define POST_TRIGGER_SAMPLES (256)
+#define POST_TRIGGER_SAMPLES (512)
 #define RECORDS_PER_BUFFER (1000)
 #define BUFFERS_PER_ACQUISITION (500)
 
@@ -13,6 +13,6 @@
 #define MIRROR_VOLTAGE_RANGE_PM_V (0.2) // FOR PLOTTING PURPOSES ONLY
 
 // Save parameters
-#define SAVE_PATH ("C:\\Users\\Labadmin\\Documents\\JATS_TempDataFolder\\")
+#define SAVE_PATH ("C:\\Users\\illumiSonics\\Documents\\JATS_TempDataRecord\\")
 
 #endif // ACQUISITIONCONFIG_H

@@ -14,7 +14,8 @@ dataProcessingThread::dataProcessingThread(QObject *parent) :
     sig_sc(RECORDS_PER_BUFFER),
     sig_pa(RECORDS_PER_BUFFER),
     sig_gsc(RECORDS_PER_BUFFER),
-    sig_flag(false)
+    sig_flag(false),
+    focusSig_flag(false)
 {
 
 }
@@ -71,6 +72,13 @@ void dataProcessingThread::read_sig(QVector<double> *sig_pa,
     *sig_m2 = this->sig_m2;
 
     sig_flag = false;
+}
+
+
+void dataProcessingThread::read_focusSig(double *focusSig_nsc){
+    QMutexLocker locker(&focusSig_mutex);
+    *focusSig_nsc = this->focusSig_nsc;
+    focusSig_flag = false;
 }
 
 void dataProcessingThread::updateTimeDomains(AlazarControlThread *dataThread)
@@ -157,6 +165,8 @@ void dataProcessingThread::updateTimeDomains(AlazarControlThread *dataThread)
             temp_sig_m1[i] += temp_rawSig_ch3[i][j];
         }
         temp_sig_m1[i] /= (PRE_TRIGGER_SAMPLES+POST_TRIGGER_SAMPLES);
+        temp_sig_m1[i] += -0.0028;
+
     }
 
     // MIRROR 2 EXTRACTION
@@ -165,8 +175,8 @@ void dataProcessingThread::updateTimeDomains(AlazarControlThread *dataThread)
             temp_sig_m2[i] += temp_rawSig_ch4[i][j];
         }
         temp_sig_m2[i] /= (PRE_TRIGGER_SAMPLES+POST_TRIGGER_SAMPLES);
+        temp_sig_m2[i] += -0.002;
     }
-
     // NIR SCATTERING EXTRACTION
     //Only averaging pre-trigger because it avoids any corruption from PARS
     for (int i = 0; i < RECORDS_PER_BUFFER; i++){
@@ -202,10 +212,10 @@ void dataProcessingThread::updateTimeDomains(AlazarControlThread *dataThread)
             gsc_DC += temp_rawSig_ch2[i][j];
         }
         gsc_DC /= 80;
-        for (int j = 90; j < 140; j++){
+        for (int j = 90; j < 384; j++){
             temp_sig_gsc[i] += temp_rawSig_ch2[i][j];
         }
-        temp_sig_gsc[i] /= 50;
+        temp_sig_gsc[i] /= 274;
         temp_sig_gsc[i] -= gsc_DC;
     }
 
@@ -222,5 +232,25 @@ void dataProcessingThread::updateTimeDomains(AlazarControlThread *dataThread)
 
     if (sig_sendEmit){
         emit sig_ready();
+    }
+
+    // NIR SCATTERING FOCUS METRIC
+    double temp_focusSig_nsc = 0;
+    bool focusSig_sendEmit;
+
+    for (int i = 0; i < RECORDS_PER_BUFFER-1; i++){
+        temp_focusSig_nsc += temp_sig_sc[i]-temp_sig_sc[i+1];
+    }
+    temp_focusSig_nsc = temp_focusSig_nsc/(RECORDS_PER_BUFFER-1);
+
+    {
+        QMutexLocker locker(&focusSig_mutex);
+        focusSig_nsc = temp_focusSig_nsc;
+        focusSig_sendEmit = !focusSig_flag;
+        focusSig_flag = true;
+    }
+
+    if (focusSig_sendEmit){
+        emit focusSig_ready();
     }
 }

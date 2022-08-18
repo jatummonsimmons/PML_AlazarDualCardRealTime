@@ -30,7 +30,21 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-win32: LIBS += -L$$PWD/'../../../../../Program Files/AlazarTech/ATS-SDK/7.4.0/Samples_C/Library/x64/' -lATSApi
+#win32: LIBS += -L$$PWD/'../../../../../Program Files/AlazarTech/ATS-SDK/7.4.0/Samples_C/Library/x64/' -lATSApi
 
-INCLUDEPATH += $$PWD/'../../../../../Program Files/AlazarTech/ATS-SDK/7.4.0/Samples_C/Include'
-DEPENDPATH += $$PWD/'../../../../../Program Files/AlazarTech/ATS-SDK/7.4.0/Samples_C/Include'
+#INCLUDEPATH += $$PWD/'../../../../../Program Files/AlazarTech/ATS-SDK/7.4.0/Samples_C/Include'
+#DEPENDPATH += $$PWD/'../../../../../Program Files/AlazarTech/ATS-SDK/7.4.0/Samples_C/Include'
+
+
+#unix|win32: LIBS += -L$$PWD/../../../../../AlazarTech/Samples_C/Library/x64/ -lATSApi
+
+
+
+unix|win32: LIBS += -L$$PWD/../../../../../AlazarTech/Samples_C/Library/x64/ -lATSApi
+
+INCLUDEPATH += $$PWD/../../../../../AlazarTech/Samples_C/Include
+DEPENDPATH += $$PWD/../../../../../AlazarTech/Samples_C/Include
+
+
+win32:!win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../AlazarTech/Samples_C/Library/x64/ATSApi.lib
+else:unix|win32-g++: PRE_TARGETDEPS += $$PWD/../../../../../AlazarTech/Samples_C/Library/x64/libATSApi.a
