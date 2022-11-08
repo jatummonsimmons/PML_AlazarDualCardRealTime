@@ -852,3 +852,28 @@ void MainWindow::on_pushButton_6_clicked()
 
     memset(img_sc_background,0,sizeof(img_sc));
 }
+
+void MainWindow::on_lineEdit_2_returnPressed()
+{
+    // Check line edit value
+    QString rangeOfMirrors = ui->lineEdit_2->text();
+    double mirrorRange = rangeOfMirrors.toDouble();
+
+    // Update all image plots with this value
+    colorMap_pa->data()->setRange(QCPRange(-mirrorRange, mirrorRange), QCPRange(-mirrorRange, mirrorRange)); // and span the coordinate range -1400, 1400 in both key (x) and value (y) dimensions
+    colorMap_sc->data()->setRange(QCPRange(-mirrorRange, mirrorRange), QCPRange(-mirrorRange, mirrorRange)); // and span the coordinate range -1400, 1400 in both key (x) and value (y) dimensions
+    colorMap_gsc->data()->setRange(QCPRange(-mirrorRange, mirrorRange), QCPRange(-mirrorRange, mirrorRange)); // and span the coordinate range -1400, 1400 in both key (x) and value (y) dimensions
+    colorMap_sc_gsc->data()->setRange(QCPRange(-mirrorRange, mirrorRange), QCPRange(-mirrorRange, mirrorRange)); // and span the coordinate range -1400, 1400 in both key (x) and value (y) dimensions
+
+    ui->customPlot_img_sc->rescaleAxes();
+    ui->customPlot_img_pa->rescaleAxes();
+    ui->customPlot_img_gsc->rescaleAxes();
+    ui->customPlot_img_sc_gsc->rescaleAxes();
+
+    // Update all mirror vs. plot with this value
+    ui->customPlot_sc_m1->xAxis->setRange(-mirrorRange,mirrorRange);
+    ui->customPlot_pa_m1->xAxis->setRange(-mirrorRange,mirrorRange);
+    ui->customPlot_gsc_m1->xAxis->setRange(-mirrorRange,mirrorRange);
+    ui->customPlot_sc_gsc->xAxis->setRange(-mirrorRange,mirrorRange);
+}
+

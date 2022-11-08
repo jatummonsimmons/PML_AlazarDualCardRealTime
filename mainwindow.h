@@ -44,6 +44,8 @@ private slots:
     void on_checkBox_stateChanged(int arg1);
     void on_pushButton_6_clicked();
 
+    void on_lineEdit_2_returnPressed();
+
 private:
     Ui::MainWindow *ui;
     AlazarControlThread dataThread;
